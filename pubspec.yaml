@@ -1,6 +1,6 @@
 name: flutter_core_kit_plus
 description: A robust, production-ready foundation for Flutter apps combining internet-aware HTTP client, type-safe state management, and reusable UI components.
-version: 0.0.1
+version: 0.1.0
 homepage: https://github.com/ornchannlyhov/flutter_core_kit
 repository: https://github.com/ornchannlyhov/flutter_core_kit
 
@@ -14,6 +14,11 @@ dependencies:
   connectivity_plus: ^7.0.0
   dio: ^5.9.0
   equatable: ^2.0.7
+  dio_cache_interceptor: ^3.5.0
+  dio_cache_interceptor_hive_store: ^3.2.2
+  hive: ^2.2.3
+  path_provider: ^2.1.0
+  flutter_secure_storage: ^9.0.0
 
 dev_dependencies:
   flutter_test:

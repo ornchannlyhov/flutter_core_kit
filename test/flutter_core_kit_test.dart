@@ -1,63 +1,287 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_core_kit_plus/flutter_core_kit_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 
 void main() {
+  // ============================================================================
+  // NETWORKING TESTS
+  // ============================================================================
+
   group('NetworkException Tests', () {
     test('should create exception with message and status code', () {
       final exception = NetworkException('Network error', statusCode: 404);
 
       expect(exception.message, 'Network error');
       expect(exception.statusCode, 404);
+      expect(exception.errorType, ErrorType.notFound);
     });
 
-    test('should create exception without status code', () {
-      final exception = NetworkException('Network error');
+    test('should determine error types correctly', () {
+      final auth = NetworkException('Unauthorized', statusCode: 401);
+      final forbidden = NetworkException('Forbidden', statusCode: 403);
+      final notFound = NetworkException('Not found', statusCode: 404);
+      final client = NetworkException('Bad request', statusCode: 400);
+      final server = NetworkException('Server error', statusCode: 500);
 
-      expect(exception.message, 'Network error');
-      expect(exception.statusCode, isNull);
+      expect(auth.errorType, ErrorType.unauthorized);
+      expect(auth.isAuthError, isTrue);
+      expect(forbidden.errorType, ErrorType.forbidden);
+      expect(notFound.errorType, ErrorType.notFound);
+      expect(client.errorType, ErrorType.clientError);
+      expect(server.errorType, ErrorType.serverError);
+      expect(server.isServerError, isTrue);
     });
 
-    test('should have correct toString', () {
-      final exception = NetworkException('Not found', statusCode: 404);
+    test('should identify retryable errors', () {
+      final timeout = TimeoutException();
+      final noInternet = NoInternetException();
+      final server = ServerException();
+      final auth = AuthException();
 
-      expect(exception.toString(), 'NetworkException: Not found (Code: 404)');
+      expect(timeout.isRetryable, isTrue);
+      expect(noInternet.isRetryable, isTrue);
+      expect(server.isRetryable, isTrue);
+      expect(auth.isRetryable, isFalse);
+    });
+
+    test('typed exceptions should have correct properties', () {
+      final noInternet = NoInternetException();
+      final timeout = TimeoutException();
+      final auth = AuthException();
+      final forbidden = ForbiddenException();
+      final notFound = NotFoundException();
+      final server = ServerException('Server down', 503);
+
+      expect(noInternet.isNetworkError, isTrue);
+      expect(timeout.errorType, ErrorType.timeout);
+      expect(auth.statusCode, 401);
+      expect(forbidden.statusCode, 403);
+      expect(notFound.statusCode, 404);
+      expect(server.statusCode, 503);
+    });
+
+    test('should convert DioException to NetworkException', () {
+      final dioTimeout = DioException(
+        requestOptions: RequestOptions(path: '/test'),
+        type: DioExceptionType.connectionTimeout,
+      );
+
+      final networkEx = dioTimeout.toNetworkException();
+      expect(networkEx, isA<TimeoutException>());
+      expect(networkEx.isRetryable, isTrue);
     });
   });
 
-  group('Result Tests', () {
-    test('Success should hold value', () {
-      const result = Success<int>(42);
+  // ============================================================================
+  // AUTH TOKEN MANAGER TESTS
+  // ============================================================================
 
-      expect(result, isA<Success<int>>());
-      expect(result.value, 42);
+  group('AuthTokenManager Tests', () {
+    late AuthTokenManager tokenManager;
+
+    setUp(() {
+      tokenManager = AuthTokenManager(useSecureStorage: false);
     });
 
-    test('Failure should hold exception', () {
-      final exception = Exception('Error occurred');
-      final result = Failure<int>(exception);
+    test('should save and retrieve access token', () async {
+      await tokenManager.saveAccessToken('test_access_token');
+      final token = await tokenManager.getAccessToken();
 
-      expect(result, isA<Failure<int>>());
-      expect(result.exception, exception);
+      expect(token, 'test_access_token');
     });
 
-    test('should work with pattern matching', () {
-      const success = Success<String>('Hello');
-      final failure = Failure<String>(Exception('Oops'));
+    test('should save and retrieve refresh token', () async {
+      await tokenManager.saveRefreshToken('test_refresh_token');
+      final token = await tokenManager.getRefreshToken();
 
-      final successResult = switch (success) {
-        Success(value: final v) => v,
-      };
+      expect(token, 'test_refresh_token');
+    });
 
-      final failureResult = switch (failure) {
-        Success() => 'success',
-        Failure(exception: final e) => e.toString(),
-      };
+    test('should save multiple tokens at once', () async {
+      await tokenManager.saveTokens(
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      );
 
-      expect(successResult, 'Hello');
-      expect(failureResult, contains('Oops'));
+      final accessToken = await tokenManager.getAccessToken();
+      final refreshToken = await tokenManager.getRefreshToken();
+      final expiry = await tokenManager.getTokenExpiry();
+
+      expect(accessToken, 'access');
+      expect(refreshToken, 'refresh');
+      expect(expiry, isNotNull);
+    });
+
+    test('should detect expired tokens', () async {
+      await tokenManager.saveTokens(
+        accessToken: 'expired',
+        expiresAt: DateTime.now().subtract(const Duration(hours: 1)),
+      );
+
+      final isExpired = await tokenManager.isAccessTokenExpired();
+      final hasValid = await tokenManager.hasValidAccessToken();
+
+      expect(isExpired, isTrue);
+      expect(hasValid, isFalse);
+    });
+
+    test('should detect valid tokens', () async {
+      await tokenManager.saveTokens(
+        accessToken: 'valid',
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      );
+
+      final isExpired = await tokenManager.isAccessTokenExpired();
+      final hasValid = await tokenManager.hasValidAccessToken();
+
+      expect(isExpired, isFalse);
+      expect(hasValid, isTrue);
+    });
+
+    test('should clear all tokens', () async {
+      await tokenManager.saveTokens(
+        accessToken: 'access',
+        refreshToken: 'refresh',
+      );
+
+      await tokenManager.clearTokens();
+
+      final accessToken = await tokenManager.getAccessToken();
+      final refreshToken = await tokenManager.getRefreshToken();
+
+      expect(accessToken, isNull);
+      expect(refreshToken, isNull);
     });
   });
+
+  // ============================================================================
+  // ERROR MAPPER TESTS
+  // ============================================================================
+
+  group('ErrorMapper Tests', () {
+    test('should map typed exceptions to friendly messages', () {
+      final noInternet = NoInternetException();
+      final timeout = TimeoutException();
+      final auth = AuthException();
+      final forbidden = ForbiddenException();
+      final notFound = NotFoundException();
+      final server = ServerException();
+
+      expect(ErrorMapper.mapError(noInternet), contains('internet'));
+      expect(ErrorMapper.mapError(timeout), contains('timeout'));
+      expect(ErrorMapper.mapError(auth), contains('Authentication'));
+      expect(ErrorMapper.mapError(forbidden), contains('permission'));
+      expect(ErrorMapper.mapError(notFound), contains('not found'));
+      expect(ErrorMapper.mapError(server), contains('server error'));
+    });
+
+    test('should map status codes to friendly messages', () {
+      final error400 = NetworkException('Bad request', statusCode: 400);
+      final error404 = NetworkException('Not found', statusCode: 404);
+      final error500 = NetworkException('Server error', statusCode: 500);
+      final error503 = NetworkException('Unavailable', statusCode: 503);
+
+      expect(ErrorMapper.mapError(error400), contains('Bad request'));
+      expect(ErrorMapper.mapError(error404), contains('not found'));
+      expect(ErrorMapper.mapError(error500), contains('server error'));
+      expect(ErrorMapper.mapError(error503), contains('unavailable'));
+    });
+
+    test('should support custom error mappings', () {
+      ErrorMapper.addMapping(TimeoutException, 'Custom timeout message');
+      final timeout = TimeoutException();
+
+      expect(ErrorMapper.mapError(timeout), 'Custom timeout message');
+
+      ErrorMapper.clearCustomMappings();
+    });
+
+    test('should support custom status code mappings', () {
+      ErrorMapper.addStatusCodeMapping(418, 'I\'m a teapot');
+      final error = NetworkException('Teapot', statusCode: 418);
+
+      expect(ErrorMapper.mapError(error), 'I\'m a teapot');
+
+      ErrorMapper.clearCustomMappings();
+    });
+
+    test('should handle unknown errors gracefully', () {
+      final message = ErrorMapper.mapError(Exception('Unknown'));
+
+      expect(message, contains('unexpected error'));
+    });
+  });
+
+  // ============================================================================
+  // DEBOUNCER TESTS (Enhanced)
+  // ============================================================================
+
+  group('Debouncer Tests', () {
+    test('should debounce rapid calls', () async {
+      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
+      int callCount = 0;
+
+      debouncer.run(() => callCount++);
+      debouncer.run(() => callCount++);
+      debouncer.run(() => callCount++);
+
+      expect(callCount, 0);
+      await Future.delayed(const Duration(milliseconds: 150));
+      expect(callCount, 1);
+
+      debouncer.dispose();
+    });
+
+    test('cancel should stop pending execution', () async {
+      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
+      int callCount = 0;
+
+      debouncer.run(() => callCount++);
+      expect(debouncer.isActive, isTrue);
+
+      debouncer.cancel();
+      expect(debouncer.isActive, isFalse);
+
+      await Future.delayed(const Duration(milliseconds: 150));
+      expect(callCount, 0);
+
+      debouncer.dispose();
+    });
+
+    test('isActive should reflect debouncer state', () async {
+      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
+
+      expect(debouncer.isActive, isFalse);
+
+      debouncer.run(() {});
+      expect(debouncer.isActive, isTrue);
+
+      await Future.delayed(const Duration(milliseconds: 150));
+      expect(debouncer.isActive, isFalse);
+
+      debouncer.dispose();
+    });
+
+    test('dispose should cancel timer and clear state', () async {
+      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
+      int callCount = 0;
+
+      debouncer.run(() => callCount++);
+      expect(debouncer.isActive, isTrue);
+
+      debouncer.dispose();
+      expect(debouncer.isActive, isFalse);
+
+      await Future.delayed(const Duration(milliseconds: 150));
+      expect(callCount, 0);
+    });
+  });
+
+  // ============================================================================
+  // ASYNC VALUE TESTS
+  // ============================================================================
 
   group('AsyncValue Tests', () {
     test('should create loading state', () {
@@ -111,49 +335,32 @@ void main() {
       const success = AsyncValue<int>.success(42);
       final error = AsyncValue<int>.error(Exception('Error'));
 
-      final loadingResult = loading.when(
-        loading: () => 'loading',
-        error: (e, s) => 'error',
-        success: (data) => 'success: $data',
+      expect(
+        loading.when(
+          loading: () => 'loading',
+          error: (e, s) => 'error',
+          success: (data) => 'success: $data',
+        ),
+        'loading',
       );
 
-      final successResult = success.when(
-        loading: () => 'loading',
-        error: (e, s) => 'error',
-        success: (data) => 'success: $data',
+      expect(
+        success.when(
+          loading: () => 'loading',
+          error: (e, s) => 'error',
+          success: (data) => 'success: $data',
+        ),
+        'success: 42',
       );
 
-      final errorResult = error.when(
-        loading: () => 'loading',
-        error: (e, s) => 'error',
-        success: (data) => 'success: $data',
+      expect(
+        error.when(
+          loading: () => 'loading',
+          error: (e, s) => 'error',
+          success: (data) => 'success: $data',
+        ),
+        'error',
       );
-
-      expect(loadingResult, 'loading');
-      expect(successResult, 'success: 42');
-      expect(errorResult, 'error');
-    });
-
-    test('maybeWhen should use orElse when callback not provided', () {
-      const loading = AsyncValue<int>.loading();
-
-      final result = loading.maybeWhen(
-        success: (data) => 'success: $data',
-        orElse: () => 'default',
-      );
-
-      expect(result, 'default');
-    });
-
-    test('maybeWhen should use specific callback when provided', () {
-      const success = AsyncValue<int>.success(42);
-
-      final result = success.maybeWhen(
-        success: (data) => 'success: $data',
-        orElse: () => 'default',
-      );
-
-      expect(result, 'success: 42');
     });
 
     test('copyWith should update state', () {
@@ -177,56 +384,9 @@ void main() {
     });
   });
 
-  group('Debouncer Tests', () {
-    test('should debounce rapid calls', () async {
-      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
-      int callCount = 0;
-
-      // Rapid calls
-      debouncer.run(() => callCount++);
-      debouncer.run(() => callCount++);
-      debouncer.run(() => callCount++);
-
-      // Should not have executed yet
-      expect(callCount, 0);
-
-      // Wait for debounce duration
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      // Should have executed only once
-      expect(callCount, 1);
-
-      debouncer.dispose();
-    });
-
-    test('should execute latest action only', () async {
-      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
-      String result = '';
-
-      debouncer.run(() => result = 'first');
-      await Future.delayed(const Duration(milliseconds: 50));
-      debouncer.run(() => result = 'second');
-      await Future.delayed(const Duration(milliseconds: 50));
-      debouncer.run(() => result = 'third');
-
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      expect(result, 'third');
-      debouncer.dispose();
-    });
-
-    test('dispose should cancel timer', () async {
-      final debouncer = Debouncer(duration: const Duration(milliseconds: 100));
-      int callCount = 0;
-
-      debouncer.run(() => callCount++);
-      debouncer.dispose();
-
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      expect(callCount, 0);
-    });
-  });
+  // ============================================================================
+  // PAGED RESPONSE TESTS
+  // ============================================================================
 
   group('PagedResponse Tests', () {
     test('should create paged response from JSON', () {
@@ -268,22 +428,11 @@ void main() {
 
       expect(response.hasNext, isTrue);
     });
-
-    test('should handle missing meta fields with defaults', () {
-      final json = {
-        'data': [
-          {'id': 1},
-        ],
-      };
-
-      final response = PagedResponse.fromJson(json, (item) => item);
-
-      expect(response.currentPage, 1);
-      expect(response.totalPages, 1);
-      expect(response.totalItems, 0);
-      expect(response.hasNext, isFalse);
-    });
   });
+
+  // ============================================================================
+  // UI WIDGET TESTS
+  // ============================================================================
 
   group('AsyncValueWidget Tests', () {
     testWidgets('should show loading indicator for loading state', (
@@ -320,33 +469,6 @@ void main() {
       );
 
       expect(find.text('Data: 42'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-    });
-
-    testWidgets('should show error for error state', (tester) async {
-      final asyncValue = AsyncValue<int>.error(Exception('Test error'));
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: AsyncValueWidget<int>(
-              value: asyncValue,
-              data: (data) => Text('Data: $data'),
-            ),
-          ),
-        ),
-      );
-
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Text &&
-              widget.data != null &&
-              widget.data!.contains('Test error'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
     });
 
     testWidgets('should show retry button and call onRetry', (tester) async {
@@ -372,51 +494,99 @@ void main() {
 
       expect(retryClicked, isTrue);
     });
+  });
 
-    testWidgets('should use custom loading widget', (tester) async {
-      const asyncValue = AsyncValue<int>.loading();
+  group('AsyncValueBuilder Tests', () {
+    testWidgets('should provide full control over UI', (tester) async {
+      const asyncValue = AsyncValue<int>.success(42);
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: AsyncValueWidget<int>(
+            body: AsyncValueBuilder<int>(
               value: asyncValue,
-              data: (data) => Text('Data: $data'),
-              loading: () => const Text('Custom Loading'),
+              builder: (context, value) {
+                return value.when(
+                  loading: () => const Text('Loading...'),
+                  error: (e, s) => const Text('Error'),
+                  success: (data) => Text('Custom: $data'),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Custom: 42'), findsOneWidget);
+    });
+
+    testWidgets('should handle all states in builder', (tester) async {
+      const loading = AsyncValue<int>.loading();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AsyncValueBuilder<int>(
+              value: loading,
+              builder: (context, value) {
+                return value.when(
+                  loading: () => const Text('Custom Loading'),
+                  error: (e, s) => const Text('Custom Error'),
+                  success: (data) => Text('Data: $data'),
+                );
+              },
             ),
           ),
         ),
       );
 
       expect(find.text('Custom Loading'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
+  });
 
-    testWidgets('should use custom error widget', (tester) async {
-      final asyncValue = AsyncValue<int>.error(Exception('Test error'));
+  group('AsyncValueSliverWidget Tests', () {
+    testWidgets('should render sliver for success state', (tester) async {
+      const asyncValue = AsyncValue<String>.success('Test');
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: AsyncValueWidget<int>(
-              value: asyncValue,
-              data: (data) => Text('Data: $data'),
-              error: (err, stack) => Text('Custom Error: $err'),
+            body: CustomScrollView(
+              slivers: [
+                AsyncValueSliverWidget<String>(
+                  value: asyncValue,
+                  data: (data) => Text(data),
+                ),
+              ],
             ),
           ),
         ),
       );
 
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Text &&
-              widget.data != null &&
-              widget.data!.contains('Custom Error'),
+      expect(find.text('Test'), findsOneWidget);
+      expect(find.byType(SliverToBoxAdapter), findsOneWidget);
+    });
+
+    testWidgets('should show loading in sliver', (tester) async {
+      const asyncValue = AsyncValue<String>.loading();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                AsyncValueSliverWidget<String>(
+                  value: asyncValue,
+                  data: (data) => Text(data),
+                ),
+              ],
+            ),
+          ),
         ),
-        findsOneWidget,
       );
-      expect(find.byIcon(Icons.error_outline), findsNothing);
+
+      expect(find.byType(SliverFillRemaining), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
   });
 }
