@@ -1,8 +1,8 @@
-name: flutter_core_kit
+name: flutter_core_kit_plus
 description: A robust, production-ready foundation for Flutter apps combining internet-aware HTTP client, type-safe state management, and reusable UI components.
 version: 0.0.1
-homepage: https://github.com/yourusername/flutter_core_kit
-repository: https://github.com/yourusername/flutter_core_kit
+homepage: https://github.com/ornchannlyhov/flutter_core_kit
+repository: https://github.com/ornchannlyhov/flutter_core_kit
 
 environment:
   sdk: ^3.8.1

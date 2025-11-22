@@ -1,6 +1,6 @@
 // Import your package
 import 'package:flutter/material.dart';
-import 'package:flutter_core_kit/flutter_core_kit.dart';
+import 'package:flutter_core_kit_plus/flutter_core_kit_plus.dart';
 
 // 1. Define a Model
 class User {

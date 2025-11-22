@@ -1,4 +1,4 @@
-# Flutter Core Kit
+# Flutter Core Kit Plus
 
 A robust, production-ready foundation for Flutter applications. This package combines an internet-aware HTTP client, type-safe state management, and reusable UI components to reduce boilerplate code by up to 70%.
 
@@ -15,7 +15,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_core_kit: ^0.0.1
+  flutter_core_kit_plus: ^0.0.1
 ```
 
 Then run:
@@ -31,7 +31,7 @@ flutter pub get
 The RestClient is environment-agnostic. You pass the URL and interceptors (like Auth) when you create it.
 
 ```dart
-import 'package:flutter_core_kit/flutter_core_kit.dart';
+import 'package:flutter_core_kit_plus/flutter_core_kit_plus.dart';
 
 final api = RestClient(
   baseUrl: 'https://api.example.com',
