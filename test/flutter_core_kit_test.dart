@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_core_kit/flutter_core_kit.dart';
+import 'package:flutter_core_kit_plus/flutter_core_kit_plus.dart';
 import 'package:flutter/material.dart';
 
 void main() {
