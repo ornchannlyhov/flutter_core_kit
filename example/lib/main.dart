@@ -81,7 +81,9 @@ class _DemoScreenState extends State<DemoScreen> {
 
       // Convert to PagedResponse format
       return PagedResponse<Post>(
-        items: data.map((e) => Post.fromJson(e)).toList(),
+        items: data
+            .map((e) => Post.fromJson(e as Map<String, dynamic>))
+            .toList(),
         currentPage: 1,
         totalPages: 1,
         totalItems: data.length,
@@ -319,7 +321,7 @@ class User {
   User({required this.name, required this.email});
 
   factory User.fromJson(Map<String, dynamic> json) =>
-      User(name: json['name'], email: json['email']);
+      User(name: json['name'] as String, email: json['email'] as String);
 }
 
 class Post {
@@ -329,6 +331,9 @@ class Post {
 
   Post({required this.id, required this.title, required this.body});
 
-  factory Post.fromJson(Map<String, dynamic> json) =>
-      Post(id: json['id'], title: json['title'], body: json['body']);
+  factory Post.fromJson(Map<String, dynamic> json) => Post(
+    id: json['id'] as int,
+    title: json['title'] as String,
+    body: json['body'] as String,
+  );
 }

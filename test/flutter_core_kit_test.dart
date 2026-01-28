@@ -228,7 +228,7 @@ void main() {
       debouncer.run(() => callCount++);
 
       expect(callCount, 0);
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
       expect(callCount, 1);
 
       debouncer.dispose();
@@ -244,9 +244,20 @@ void main() {
       debouncer.cancel();
       expect(debouncer.isActive, isFalse);
 
-      await Future.delayed(const Duration(milliseconds: 150));
-      expect(callCount, 0);
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(
+        callCount,
+        0,
+        reason: 'Should have retried once after initial delay',
+      );
 
+      // Second failure
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      expect(callCount, 0, reason: 'Should have retried twice after backoff');
+
+      // Third failure
+      await Future<void>.delayed(const Duration(milliseconds: 2100));
+      expect(callCount, 0, reason: 'Should have retried 3 times after backoff');
       debouncer.dispose();
     });
 
@@ -258,7 +269,7 @@ void main() {
       debouncer.run(() {});
       expect(debouncer.isActive, isTrue);
 
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
       expect(debouncer.isActive, isFalse);
 
       debouncer.dispose();
@@ -274,7 +285,7 @@ void main() {
       debouncer.dispose();
       expect(debouncer.isActive, isFalse);
 
-      await Future.delayed(const Duration(milliseconds: 150));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
       expect(callCount, 0);
     });
   });
@@ -391,11 +402,13 @@ void main() {
   group('PagedResponse Tests', () {
     test('should create paged response from JSON', () {
       final json = {
-        'data': [
+        'items': [
           {'id': 1, 'name': 'Item 1'},
           {'id': 2, 'name': 'Item 2'},
         ],
-        'meta': {'current_page': 1, 'last_page': 5, 'total': 50},
+        'current_page': 1,
+        'total_pages': 5,
+        'total_items': 50,
       };
 
       final response = PagedResponse.fromJson(json, (item) => item);

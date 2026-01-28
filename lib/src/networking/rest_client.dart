@@ -202,7 +202,7 @@ class RestClient {
   /// --- INTERNAL HANDLER ---
 
   Future<T> _request<T>(
-    Future<Response> Function() requestFunc, {
+    Future<Response<dynamic>> Function() requestFunc, {
     String? endpoint,
   }) async {
     if (!await hasNetwork()) {

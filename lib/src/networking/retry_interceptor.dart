@@ -26,14 +26,14 @@ class RetryInterceptor extends Interceptor {
 
     // Calculate delay with exponential backoff
     final delay = initialDelay * (backoffMultiplier * retryCount);
-    await Future.delayed(delay);
+    await Future<void>.delayed(delay);
 
     // Increment retry count
     err.requestOptions.extra['retryCount'] = retryCount + 1;
 
     try {
       // Retry the request
-      final response = await Dio().fetch(err.requestOptions);
+      final response = await Dio().fetch<dynamic>(err.requestOptions);
       return handler.resolve(response);
     } on DioException catch (e) {
       return handler.next(e);

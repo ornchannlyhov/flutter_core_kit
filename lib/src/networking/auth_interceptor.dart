@@ -149,7 +149,7 @@ class AuthInterceptor extends QueuedInterceptor {
           .then((response) {
             item.handler.resolve(response);
           })
-          .catchError((e) {
+          .catchError((Object e) {
             if (e is DioException) {
               item.handler.next(e);
             } else {
@@ -171,7 +171,7 @@ class AuthInterceptor extends QueuedInterceptor {
   }
 
   /// Retry a request
-  Future<Response> _retry(RequestOptions requestOptions) {
+  Future<Response<dynamic>> _retry(RequestOptions requestOptions) {
     return Dio().fetch(requestOptions);
   }
 }

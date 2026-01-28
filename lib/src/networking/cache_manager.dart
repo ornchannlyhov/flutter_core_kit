@@ -1,7 +1,4 @@
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
-import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:hive/hive.dart';
 
 /// Manages HTTP response caching with configurable policies
 class CacheManager {
@@ -17,8 +14,10 @@ class CacheManager {
     return _instance!;
   }
 
-  /// Initialize the cache manager with Hive
+  /// Initialize the cache manager
+  /// [store] Optional cache store. Defaults to MemCacheStore if not provided.
   Future<void> initialize({
+    CacheStore? store,
     Duration maxStale = const Duration(days: 7),
     Duration maxAge = const Duration(hours: 1),
     CachePolicy policy = CachePolicy.request,
@@ -28,33 +27,17 @@ class CacheManager {
       return; // Already initialized
     }
 
-    try {
-      final dir = await getTemporaryDirectory();
-      final hivePath = '${dir.path}/http_cache';
+    _cacheStore = store ?? MemCacheStore(maxSize: maxSize);
 
-      // Initialize Hive
-      Hive.init(hivePath);
-
-      _cacheStore = HiveCacheStore(hivePath);
-
-      _cacheOptions = CacheOptions(
-        store: _cacheStore!,
-        policy: policy,
-        maxStale: maxStale,
-        priority: CachePriority.high,
-        cipher: null,
-        keyBuilder: CacheOptions.defaultCacheKeyBuilder,
-        allowPostMethod: false,
-      );
-    } catch (e) {
-      // If initialization fails, cache will be disabled
-      _cacheStore = MemCacheStore(); // Fallback to memory cache
-      _cacheOptions = CacheOptions(
-        store: _cacheStore!,
-        policy: policy,
-        maxStale: maxStale,
-      );
-    }
+    _cacheOptions = CacheOptions(
+      store: _cacheStore!,
+      policy: policy,
+      maxStale: maxStale,
+      priority: CachePriority.high,
+      cipher: null,
+      keyBuilder: CacheOptions.defaultCacheKeyBuilder,
+      allowPostMethod: false,
+    );
   }
 
   /// Get cache options for Dio

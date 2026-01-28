@@ -1,3 +1,29 @@
+## 0.2.0
+
+### 🛡️ Strict Mode & Lightweight Architecture
+
+#### ✨ New Features
+
+**Strict Type Safety (Strong Mode)**
+* Enabled `strict-casts`, `strict-inference`, and `strict-raw-types`.
+* This ensures zero implicit dynamic types and cleaner, safer code.
+
+**Optimization**
+*   **Lighter Package**: Removed `hive`, `path_provider`, `equatable`, and `dio_cache_interceptor_hive_store`.
+*   **Caching**: `CacheManager` now defaults to fast, in-memory caching (`MemCacheStore`).
+
+**API Refinement**
+*   **Encapsulation**: `RetryInterceptor` is now internal.
+*   **Type Safety**: All generic types in `RestClient` and utilities are now explicit.
+
+#### ⚠️ Breaking Changes
+
+*   `CacheManager` initialization changed (no Hive path required).
+*   `RetryInterceptor` is no longer exported.
+*   Strict mode requires all generic types to be explicit in consumer code.
+
+---
+
 ## 0.1.0
 
 ### 🎉 Major Release - Production-Ready Enhancements

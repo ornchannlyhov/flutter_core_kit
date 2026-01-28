@@ -57,10 +57,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
     final newState = await AsyncValue.guard(() async {
       final skip = _currentPage * _limit;
-      final response = await _api.get('/products?limit=$_limit&skip=$skip');
+      final response = await _api.get<Map<String, dynamic>>(
+        '/products?limit=$_limit&skip=$skip',
+      );
 
       final products = (response['products'] as List)
-          .map((e) => Product.fromJson(e))
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
 
       _allProducts.addAll(products);
@@ -118,7 +120,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   void _showInfo(BuildContext context) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Pagination Features'),
@@ -209,9 +211,9 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
-    id: json['id'],
-    title: json['title'],
-    description: json['description'],
+    id: json['id'] as int,
+    title: json['title'] as String,
+    description: json['description'] as String,
     price: (json['price'] as num).toDouble(),
     rating: (json['rating'] as num).toDouble(),
   );

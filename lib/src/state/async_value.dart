@@ -1,8 +1,8 @@
-import 'package:equatable/equatable.dart';
-
+/// Enum defining the current state of the AsyncValue
 enum AsyncValueState { loading, success, error }
 
-class AsyncValue<T> extends Equatable {
+/// A value that is loaded asynchronously
+class AsyncValue<T> {
   final T? data;
   final Object? error;
   final StackTrace? stackTrace;
@@ -15,12 +15,17 @@ class AsyncValue<T> extends Equatable {
     required this.state,
   });
 
+  /// Creates an [AsyncValue] in loading state
   const factory AsyncValue.loading() = AsyncLoading<T>;
+
+  /// Creates an [AsyncValue] in success state
   const factory AsyncValue.success(T data) = AsyncSuccess<T>;
+
+  /// Creates an [AsyncValue] in error state
   const factory AsyncValue.error(Object error, [StackTrace? stack]) =
       AsyncError<T>;
 
-  /// Guard: Automatically catches errors from a Future
+  /// Guard: Automatically catches errors from a Future and converts them to AsyncValue
   static Future<AsyncValue<T>> guard<T>(Future<T> Function() future) async {
     try {
       final result = await future();
@@ -34,6 +39,7 @@ class AsyncValue<T> extends Equatable {
   bool get hasData => state == AsyncValueState.success && data != null;
   bool get hasError => state == AsyncValueState.error;
 
+  /// Returns a copy of this AsyncValue with the given fields replaced
   AsyncValue<T> copyWith({
     T? data,
     Object? error,
@@ -48,6 +54,7 @@ class AsyncValue<T> extends Equatable {
     );
   }
 
+  /// Pattern matching for AsyncValue
   R when<R>({
     required R Function() loading,
     required R Function(Object error, StackTrace? stack) error,
@@ -63,6 +70,7 @@ class AsyncValue<T> extends Equatable {
     }
   }
 
+  /// Pattern matching for AsyncValue with default fallback
   R maybeWhen<R>({
     R Function()? loading,
     R Function(Object error, StackTrace? stack)? error,
@@ -80,7 +88,20 @@ class AsyncValue<T> extends Equatable {
   }
 
   @override
-  List<Object?> get props => [state, data, error, stackTrace];
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is AsyncValue<T> &&
+        other.data == data &&
+        other.error == error &&
+        other.stackTrace == stackTrace &&
+        other.state == state;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(data, error, stackTrace, state);
+  }
 }
 
 class AsyncLoading<T> extends AsyncValue<T> {

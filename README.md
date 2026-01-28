@@ -35,10 +35,7 @@ flutter pub get
 import 'package:flutter_core_kit_plus/flutter_core_kit_plus.dart';
 
 // Initialize cache (call once at app startup)
-await CacheManager.instance.initialize(
-  maxAge: Duration(hours: 1),
-  maxStale: Duration(days: 7),
-);
+await CacheManager.instance.initialize();
 
 // Create API client with caching enabled
 final api = RestClient(
@@ -378,9 +375,7 @@ This package is built on top of these excellent open-source libraries:
 
 - [Dio](https://pub.dev/packages/dio) - Powerful HTTP client
 - [connectivity_plus](https://pub.dev/packages/connectivity_plus) - Network connectivity checking
-- [equatable](https://pub.dev/packages/equatable) - Value equality
 - [dio_cache_interceptor](https://pub.dev/packages/dio_cache_interceptor) - HTTP caching
-- [hive](https://pub.dev/packages/hive) - Fast local storage
 - [flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage) - Secure token storage
 
 ## 📝 License

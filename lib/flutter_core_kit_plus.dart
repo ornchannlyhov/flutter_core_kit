@@ -6,7 +6,6 @@ export 'src/networking/network_exception.dart';
 export 'src/networking/cache_manager.dart';
 export 'src/networking/auth_interceptor.dart';
 export 'src/networking/auth_token_manager.dart';
-export 'src/networking/retry_interceptor.dart';
 
 // State
 export 'src/state/async_value.dart';

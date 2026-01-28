@@ -14,16 +14,17 @@ class PagedResponse<T> {
   });
 
   // Generic factory to parse pagination JSON
-  // For JSON structure like: { "data": [], "meta": { "current_page": 1 } }
   factory PagedResponse.fromJson(
     Map<String, dynamic> json,
     T Function(Map<String, dynamic>) fromJsonT,
   ) {
     return PagedResponse(
-      items: (json['data'] as List).map((e) => fromJsonT(e)).toList(),
-      currentPage: json['meta']?['current_page'] ?? 1,
-      totalPages: json['meta']?['last_page'] ?? 1,
-      totalItems: json['meta']?['total'] ?? 0,
+      items: (json['items'] as List)
+          .map((e) => fromJsonT(e as Map<String, dynamic>))
+          .toList(),
+      currentPage: json['current_page'] as int,
+      totalPages: json['total_pages'] as int,
+      totalItems: json['total_items'] as int,
     );
   }
 }

@@ -54,18 +54,18 @@ class _AuthScreenState extends State<AuthScreen> {
         debugPrint('Refreshing token...');
 
         // Call your refresh endpoint
-        final response = await _api.post(
+        final response = await _api.post<Map<String, dynamic>>(
           '/auth/refresh',
           data: {'refresh_token': refreshToken},
         );
 
-        final newAccessToken = response['access_token'];
-        final expiresIn = response['expires_in'] ?? 3600;
+        final newAccessToken = response['access_token'] as String;
+        final expiresIn = response['expires_in'] as int? ?? 3600;
 
         // Save new token with expiry
         await _tokenManager.saveTokens(
           accessToken: newAccessToken,
-          refreshToken: response['refresh_token'],
+          refreshToken: response['refresh_token'] as String?,
           expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
         );
 
@@ -90,7 +90,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoggedIn = hasValidToken);
 
     if (hasValidToken) {
-      _fetchUserProfile();
+      await _fetchUserProfile();
     }
   }
 
@@ -104,17 +104,17 @@ class _AuthScreenState extends State<AuthScreen> {
         enableLogging: true,
       );
 
-      final response = await loginApi.post(
+      final response = await loginApi.post<Map<String, dynamic>>(
         '/auth/login',
         data: {'email': email, 'password': password},
       );
 
       // Save tokens
       await _tokenManager.saveTokens(
-        accessToken: response['access_token'],
-        refreshToken: response['refresh_token'],
+        accessToken: response['access_token'] as String,
+        refreshToken: response['refresh_token'] as String?,
         expiresAt: DateTime.now().add(
-          Duration(seconds: response['expires_in'] ?? 3600),
+          Duration(seconds: response['expires_in'] as int? ?? 3600),
         ),
       );
 
@@ -141,7 +141,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _userState = const AsyncValue.loading());
 
     final newState = await AsyncValue.guard(() async {
-      final data = await _api.get('/auth/profile');
+      final data = await _api.get<Map<String, dynamic>>('/auth/profile');
       return User.fromJson(data);
     });
 
@@ -150,7 +150,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _logout() async {
     try {
-      await _api.post('/auth/logout');
+      await _api.post<dynamic>('/auth/logout');
     } catch (e) {
       debugPrint('Logout error: $e');
     }
@@ -285,5 +285,5 @@ class User {
   User({required this.name, required this.email});
 
   factory User.fromJson(Map<String, dynamic> json) =>
-      User(name: json['name'], email: json['email']);
+      User(name: json['name'] as String, email: json['email'] as String);
 }
